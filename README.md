@@ -12,14 +12,14 @@ Apple:
 
 GooglePlay:
 
-- [] Nothing is implemented yet
+- [ ] Nothing is implemented yet
 
 ## Features on the roadmap
 
-- [] Implement "what's new" for Google Play Console
-- [] Add support for yaml configuration file
-- [] Make it available on homebrew
-- [] Add json output for CI/CD pipelines
-- [] Automated tests
+- [ ] Implement "what's new" for Google Play Console
+- [ ] Add support for yaml configuration file
+- [ ] Make it available on homebrew
+- [ ] Add json output for CI/CD pipelines
+- [ ] Automated tests
 
-> Note: This is a personal project and not affiliated with Apple or Google in any way. Use at your own risk. ALSO I work on it when I have time, so it might take a while to get to the roadmap features.
+> **Note:** This is a personal project and not affiliated with Apple or Google in any way. Use at your own risk. ALSO I work on it when I have time, so it might take a while to get to the roadmap features.
