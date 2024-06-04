@@ -1,5 +1,5 @@
 use clap::{command, Arg, Command};
-use repositories::store::{AppStore, Store};
+use repositories::store::{self, AppStore, Store};
 
 mod repositories;
 
@@ -42,6 +42,8 @@ fn main() {
                             "The path to the service account key file. Must be named AuthKey_{KEY_ID}.p8",
                         ),
                 )
+                .arg(Arg::new("google-key-path").short('g').long("google-key-path").required_if_eq("platform", "android").help("The path to the service account key file"))
+                .arg(Arg::new("package-name").long("package-name").required_if_eq("platform", "android").help("The package name of the app"))
                 .arg(Arg::new("ios-app-id").short('a').long("ios-app-id").required_if_eq("platform", "ios").help("The App Store Connect App ID"))
                 .arg(
                     Arg::new("issuer-id")
@@ -55,25 +57,60 @@ fn main() {
 
     match matches.subcommand() {
         Some(("patch", matches)) => {
-            let mut store = AppStore::new(
-                matches.get_one::<String>("key-path").unwrap().to_string(),
-                matches.get_one::<String>("issuer-id").unwrap().to_string(),
-                matches.get_one::<String>("ios-app-id").unwrap().to_string(),
-            );
+            let platform = matches.get_one::<String>("platform").unwrap().as_str();
 
-            if let Some(notes) = matches.get_one::<String>("notes") {
-                let version_name = matches.get_one::<String>("version-name").unwrap();
+            match platform {
+                "ios" => {
+                    let mut store = AppStore::new(
+                        matches.get_one::<String>("key-path").unwrap().to_string(),
+                        matches.get_one::<String>("issuer-id").unwrap().to_string(),
+                        matches.get_one::<String>("ios-app-id").unwrap().to_string(),
+                    );
 
-                let result = store.set_changelog("", version_name, notes.as_str());
+                    if let Some(notes) = matches.get_one::<String>("notes") {
+                        let version_name = matches.get_one::<String>("version-name").unwrap();
 
-                match result {
-                    Ok(_) => {
-                        println!("Successfully patched the version");
+                        let result = store.set_changelog("", version_name, notes.as_str());
+
+                        match result {
+                            Ok(_) => {
+                                println!("Successfully patched the version");
+                            }
+
+                            Err(e) => {
+                                println!("Error: {}", e);
+                            }
+                        }
                     }
+                }
 
-                    Err(e) => {
-                        println!("Error: {}", e);
+                "android" => {
+                    let mut store = store::GooglePlay::new(
+                        matches
+                            .get_one::<String>("google-key-path")
+                            .unwrap()
+                            .to_string(),
+                        matches
+                            .get_one::<String>("package-name")
+                            .unwrap()
+                            .to_string(),
+                    );
+
+                    let result = store.set_changelog("", "", "abc");
+
+                    match result {
+                        Ok(_) => {
+                            println!("Successfully logged in");
+                        }
+
+                        Err(e) => {
+                            println!("Error: {}", e);
+                        }
                     }
+                }
+
+                _ => {
+                    panic!("This should not happen!")
                 }
             }
         }

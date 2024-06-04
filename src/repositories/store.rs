@@ -1,5 +1,6 @@
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::fs;
 
 pub trait Store {
@@ -13,6 +14,12 @@ pub struct AppStore {
     token: Option<String>,
     token_expiration: Option<usize>,
     app_id: String,
+}
+
+pub struct GooglePlay {
+    pub key_path: String,
+    token: Option<String>,
+    package_name: String,
 }
 
 impl AppStore {
@@ -71,6 +78,7 @@ impl AppStore {
             iat: now,
             exp: expiration,
             aud: "appstoreconnect-v1".to_string(),
+            scope: None,
         };
 
         let token = encode(
@@ -106,12 +114,109 @@ impl AppStore {
     }
 }
 
+#[derive(Debug, Deserialize)]
+struct ServiceAccount {
+    client_email: String,
+    private_key: String,
+}
+
+impl GooglePlay {
+    pub fn new(key_path: String, package_name: String) -> Self {
+        GooglePlay {
+            key_path,
+            token: None,
+            package_name,
+        }
+    }
+
+    fn login(&mut self) -> Result<(), String> {
+        let service_account: ServiceAccount = serde_json::from_str(
+            &std::fs::read_to_string(self.key_path.as_str()).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("Time went backwards")
+            .as_secs() as usize;
+        let exp = now + 3600;
+
+        let claims = Claims {
+            iss: service_account.client_email,
+            scope: Some("https://www.googleapis.com/auth/androidpublisher".to_string()),
+            aud: "https://oauth2.googleapis.com/token".to_string(),
+            iat: now,
+            exp,
+        };
+
+        let token = encode(
+            &Header {
+                alg: jsonwebtoken::Algorithm::RS256,
+                ..Default::default()
+            },
+            &claims,
+            &EncodingKey::from_rsa_pem(service_account.private_key.as_bytes()).unwrap(),
+        )
+        .map_err(|e| e.to_string())?;
+
+        let body_json = json!({
+            "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+            "assertion": token,
+        });
+
+        let result = reqwest::blocking::Client::new()
+            .post("https://oauth2.googleapis.com/token")
+            .body(serde_json::to_string(&body_json).map_err(|e| e.to_string())?)
+            .send()
+            .map_err(|e| e.to_string())?;
+
+        if !result.status().is_success() {
+            return Err(format!(
+                "Error: {}",
+                result.text().map_err(|e| e.to_string())?
+            ));
+        }
+
+        let response =
+            serde_json::from_str::<serde_json::Value>(&result.text().map_err(|e| e.to_string())?)
+                .map_err(|e| e.to_string())?;
+
+        let access_token = response["access_token"]
+            .as_str()
+            .ok_or("Access token not found")?;
+
+        self.token = Some(access_token.to_string());
+        Ok(())
+    }
+
+    fn is_logged_in(&self) -> bool {
+        return self.token.is_some();
+    }
+
+    fn token(&mut self) -> Option<String> {
+        if !self.is_logged_in() {
+            match self.login() {
+                Ok(_) => {
+                    return self.token.clone();
+                }
+
+                Err(e) => {
+                    println!("Error: {}", e);
+                }
+            }
+        }
+
+        return self.token.clone();
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
     iss: String,
     iat: usize,
     exp: usize,
     aud: String,
+    scope: Option<String>,
 }
 
 const APP_STORE_CONNECT_URL: &str = "https://api.appstoreconnect.apple.com/v1";
@@ -167,6 +272,11 @@ type AppStoreVersionLocalizationResponsePatch = AppStoreSingleResponse<
 
 struct AppStoreDataSource {
     token: String,
+}
+
+struct GooglePlayDataSource {
+    token: String,
+    edit_id: Option<String>,
 }
 
 impl AppStoreDataSource {
@@ -252,6 +362,46 @@ impl AppStoreDataSource {
     }
 }
 
+impl GooglePlayDataSource {
+    fn new(token: String) -> Self {
+        GooglePlayDataSource {
+            token,
+            edit_id: None,
+        }
+    }
+
+    fn create_edit(&mut self, package: &str) -> Result<(), String> {
+        if self.edit_id.is_some() {
+            return Ok(());
+        }
+
+        let client = reqwest::blocking::Client::new()
+            .post(format!(
+                "https://www.googleapis.com/androidpublisher/v3/applications/{}/edits",
+                package
+            ))
+            .bearer_auth(self.token.clone())
+            .header("Content-Type", "application/json")
+            .body("{}");
+
+        let response = client.send().map_err(|e| e.to_string())?;
+
+        if response.status().is_success() {
+            let response: serde_json::Value =
+                serde_json::from_str(&response.text().map_err(|e| e.to_string())?)
+                    .map_err(|e| e.to_string())?;
+            self.edit_id = response["id"].as_str().map(|s| s.to_string());
+            println!("Edit ID: {:?}", self.edit_id);
+            return Ok(());
+        } else {
+            return Err(format!(
+                "Error: {}",
+                response.text().map_err(|e| e.to_string())?
+            ));
+        }
+    }
+}
+
 impl Store for AppStore {
     fn set_changelog(
         &mut self,
@@ -292,5 +442,21 @@ impl Store for AppStore {
         } else {
             return Err(response.unwrap_err().to_string());
         }
+    }
+}
+
+impl Store for GooglePlay {
+    fn set_changelog(
+        &mut self,
+        locale: &str,
+        version: &str,
+        changelog: &str,
+    ) -> Result<(), String> {
+        let token = self.token().ok_or("Not logged in".to_string())?;
+        let mut data_source = GooglePlayDataSource::new(token);
+
+        data_source.create_edit(&self.package_name).map_err(|e| e.to_string())?;
+
+        return Ok(());
     }
 }
