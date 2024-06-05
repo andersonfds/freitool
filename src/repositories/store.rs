@@ -1,7 +1,8 @@
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::fs;
+
+use super::datasources::GooglePlayDataSource;
 
 pub trait Store {
     fn set_changelog(&mut self, locale: &str, version: &str, changelog: &str)
@@ -129,7 +130,7 @@ impl GooglePlay {
         }
     }
 
-    fn login(&mut self) -> Result<(), String> {
+    fn get_private_token(&self) -> Result<String, String> {
         let service_account: ServiceAccount = serde_json::from_str(
             &std::fs::read_to_string(self.key_path.as_str()).map_err(|e| e.to_string())?,
         )
@@ -159,54 +160,23 @@ impl GooglePlay {
         )
         .map_err(|e| e.to_string())?;
 
-        let body_json = json!({
-            "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
-            "assertion": token,
-        });
+        Ok(token)
+    }
 
-        let result = reqwest::blocking::Client::new()
-            .post("https://oauth2.googleapis.com/token")
-            .body(serde_json::to_string(&body_json).map_err(|e| e.to_string())?)
-            .send()
-            .map_err(|e| e.to_string())?;
+    fn login(&mut self) -> Result<(), String> {
+        if self.is_logged_in() {
+            return Ok(());
+        } else {
+            let private_token = self.get_private_token()?;
+            let signed_token = GooglePlayDataSource::get_signed_token(private_token.as_str())?;
+            self.token = Some(signed_token);
 
-        if !result.status().is_success() {
-            return Err(format!(
-                "Error: {}",
-                result.text().map_err(|e| e.to_string())?
-            ));
+            return Ok(());
         }
-
-        let response =
-            serde_json::from_str::<serde_json::Value>(&result.text().map_err(|e| e.to_string())?)
-                .map_err(|e| e.to_string())?;
-
-        let access_token = response["access_token"]
-            .as_str()
-            .ok_or("Access token not found")?;
-
-        self.token = Some(access_token.to_string());
-        Ok(())
     }
 
     fn is_logged_in(&self) -> bool {
         return self.token.is_some();
-    }
-
-    fn token(&mut self) -> Option<String> {
-        if !self.is_logged_in() {
-            match self.login() {
-                Ok(_) => {
-                    return self.token.clone();
-                }
-
-                Err(e) => {
-                    println!("Error: {}", e);
-                }
-            }
-        }
-
-        return self.token.clone();
     }
 }
 
@@ -272,11 +242,6 @@ type AppStoreVersionLocalizationResponsePatch = AppStoreSingleResponse<
 
 struct AppStoreDataSource {
     token: String,
-}
-
-struct GooglePlayDataSource {
-    token: String,
-    edit_id: Option<String>,
 }
 
 impl AppStoreDataSource {
@@ -362,46 +327,6 @@ impl AppStoreDataSource {
     }
 }
 
-impl GooglePlayDataSource {
-    fn new(token: String) -> Self {
-        GooglePlayDataSource {
-            token,
-            edit_id: None,
-        }
-    }
-
-    fn create_edit(&mut self, package: &str) -> Result<(), String> {
-        if self.edit_id.is_some() {
-            return Ok(());
-        }
-
-        let client = reqwest::blocking::Client::new()
-            .post(format!(
-                "https://www.googleapis.com/androidpublisher/v3/applications/{}/edits",
-                package
-            ))
-            .bearer_auth(self.token.clone())
-            .header("Content-Type", "application/json")
-            .body("{}");
-
-        let response = client.send().map_err(|e| e.to_string())?;
-
-        if response.status().is_success() {
-            let response: serde_json::Value =
-                serde_json::from_str(&response.text().map_err(|e| e.to_string())?)
-                    .map_err(|e| e.to_string())?;
-            self.edit_id = response["id"].as_str().map(|s| s.to_string());
-            println!("Edit ID: {:?}", self.edit_id);
-            return Ok(());
-        } else {
-            return Err(format!(
-                "Error: {}",
-                response.text().map_err(|e| e.to_string())?
-            ));
-        }
-    }
-}
-
 impl Store for AppStore {
     fn set_changelog(
         &mut self,
@@ -452,10 +377,14 @@ impl Store for GooglePlay {
         version: &str,
         changelog: &str,
     ) -> Result<(), String> {
-        let token = self.token().ok_or("Not logged in".to_string())?;
-        let mut data_source = GooglePlayDataSource::new(token);
+        self.login()?;
 
-        data_source.create_edit(&self.package_name).map_err(|e| e.to_string())?;
+        let edit_id = GooglePlayDataSource::create_edit_session(
+            self.token.as_ref().unwrap(),
+            &self.package_name,
+        )?;
+
+        println!("Changelog edit id: {}", edit_id);
 
         return Ok(());
     }
