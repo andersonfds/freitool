@@ -20,6 +20,21 @@ where
     }
 }
 
+trait ResponseMapper {
+    fn res<T>(self) -> Result<T, String>
+    where
+        T: serde::de::DeserializeOwned;
+}
+
+impl ResponseMapper for Result<reqwest::blocking::Response, reqwest::Error> {
+    fn res<T>(self) -> Result<T, String>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        return res::<T>(self);
+    }
+}
+
 pub struct GooglePlayDataSource {}
 
 impl GooglePlayDataSource {
@@ -29,14 +44,11 @@ impl GooglePlayDataSource {
             "assertion": token,
         });
 
-        let result = reqwest::blocking::Client::new()
+        return reqwest::blocking::Client::new()
             .post("https://oauth2.googleapis.com/token")
             .body(body_json.to_string())
-            .send();
-
-        let output = res::<serde_json::Value>(result);
-
-        return output
+            .send()
+            .res::<serde_json::Value>()
             .map(|json_body| json_body["access_token"].as_str().unwrap().to_string())
             .map_err(|e| format!("Failed to get signed token: {}", e));
     }
@@ -47,15 +59,12 @@ impl GooglePlayDataSource {
             package_name
         );
 
-        let result = reqwest::blocking::Client::new()
+        return reqwest::blocking::Client::new()
             .post(endpoint)
             .bearer_auth(token)
             .body("{}")
-            .send();
-
-        let output = res::<serde_json::Value>(result);
-
-        return output
+            .send()
+            .res::<serde_json::Value>()
             .map(|json_body| json_body["id"].as_str().unwrap().to_string())
             .map_err(|e| format!("Failed to create edit session: {}", e));
     }
@@ -66,15 +75,12 @@ impl GooglePlayDataSource {
             package_name, edit_id
         );
 
-        let result = reqwest::blocking::Client::new()
+        return reqwest::blocking::Client::new()
             .post(endpoint)
             .bearer_auth(token)
             .body("{}")
-            .send();
-
-        let output = res::<serde_json::Value>(result);
-
-        return output
+            .send()
+            .res::<serde_json::Value>()
             .map(|_| ())
             .map_err(|e| format!("Failed to commit edits: {}", e));
     }
