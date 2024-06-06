@@ -2,7 +2,7 @@ use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
 use std::fs;
 
-use super::datasources::GooglePlayDataSource;
+use super::datasources::{GooglePlayDataSource, ReleaseStatus};
 
 pub trait Store {
     fn set_changelog(&mut self, locale: &str, version: &str, changelog: &str)
@@ -379,12 +379,22 @@ impl Store for GooglePlay {
     ) -> Result<(), String> {
         self.login()?;
 
-        let edit_id = GooglePlayDataSource::create_edit_session(
-            self.token.as_ref().unwrap(),
+        let token = self.token.as_ref().unwrap();
+
+        let edit_id = GooglePlayDataSource::create_edit_session(token, &self.package_name)?;
+
+        let track = GooglePlayDataSource::get_track(
+            token,
             &self.package_name,
+            edit_id.as_str(),
+            "production",
         )?;
 
-        println!("Changelog edit id: {}", edit_id);
+        let release = track
+            .releases
+            .iter()
+            .find(|r| r.status == ReleaseStatus::Draft && (r.name == version || version.is_empty()))
+            .ok_or("Release not found or in an uneditable state.")?;
 
         return Ok(());
     }

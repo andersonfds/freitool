@@ -1,4 +1,48 @@
+use serde::{Deserialize, Serialize};
 use serde_json::json;
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ReleaseNote {
+    language: String,
+    text: String,
+}
+
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
+pub enum ReleaseStatus {
+    #[serde(rename = "statusUnspecified")]
+    Unspecified,
+
+    #[serde(rename = "draft")]
+    Draft,
+
+    #[serde(rename = "inProgress")]
+    InProgress,
+
+    #[serde(rename = "halted")]
+    Halted,
+
+    #[serde(rename = "completed")]
+    Completed,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Release {
+    #[serde(rename = "versionCodes")]
+    pub version_codes: Vec<String>,
+
+    #[serde(rename = "releaseNotes")]
+    pub release_notes: Vec<ReleaseNote>,
+
+    pub status: ReleaseStatus,
+
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Track {
+    pub track: String,
+    pub releases: Vec<Release>,
+}
 
 fn res<T>(response: Result<reqwest::blocking::Response, reqwest::Error>) -> Result<T, String>
 where
@@ -8,6 +52,7 @@ where
 
     if response.status().is_success() {
         let body = response.text().map_err(|e| e.to_string())?;
+        println!("Response body: {}", body);
         let json_body: serde_json::Value =
             serde_json::from_str(&body).map_err(|e| e.to_string())?;
         let result = serde_json::from_value::<T>(json_body).map_err(|e| e.to_string())?;
@@ -67,6 +112,46 @@ impl GooglePlayDataSource {
             .res::<serde_json::Value>()
             .map(|json_body| json_body["id"].as_str().unwrap().to_string())
             .map_err(|e| format!("Failed to create edit session: {}", e));
+    }
+
+    pub fn patch_track(
+        token: &str,
+        package_name: &str,
+        edit_id: &str,
+        track: Track,
+    ) -> Result<(), String> {
+        let endpoint = format!(
+            "https://www.googleapis.com/androidpublisher/v3/applications/{}/edits/{}/tracks/{}",
+            package_name, edit_id, track.track
+        );
+
+        return reqwest::blocking::Client::new()
+            .patch(endpoint)
+            .bearer_auth(token)
+            .body(json!(track).to_string())
+            .send()
+            .res::<serde_json::Value>()
+            .map(|_| ())
+            .map_err(|e| format!("Failed to patch track: {}", e));
+    }
+
+    pub fn get_track(
+        token: &str,
+        package_name: &str,
+        edit_id: &str,
+        track: &str,
+    ) -> Result<Track, String> {
+        let endpoint = format!(
+            "https://www.googleapis.com/androidpublisher/v3/applications/{}/edits/{}/tracks/{}",
+            package_name, edit_id, track
+        );
+
+        return reqwest::blocking::Client::new()
+            .get(endpoint)
+            .bearer_auth(token)
+            .send()
+            .res::<Track>()
+            .map_err(|e| format!("Failed to get tracks list: {}", e));
     }
 
     pub fn commit_edits(token: &str, package_name: &str, edit_id: &str) -> Result<(), String> {
