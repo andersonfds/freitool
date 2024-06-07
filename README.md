@@ -6,13 +6,11 @@ So far I have implemented the following features:
 
 Apple:
 
-- [x] Login to AppStore Connect (Not available in the CLI as a command, but implemented)
-- [x] Get all apps (Not available in the CLI as a command, but implemented)
 - [x] Patch "what's new" text for an app pending release (Available in the CLI as a command)
 
 GooglePlay:
 
-- [x] Patch "what's new" text for an app pending release (Available in the CLI as a command)
+- [x] Patch "release notes" text for an app pending release (Available in the CLI as a command)
 
 ## Usage
 
