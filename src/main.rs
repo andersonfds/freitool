@@ -18,12 +18,17 @@ fn main() {
                         .long("version-name")
                         .help("Version name to be patched"),
                 )
+                
                 .arg(
                     Arg::new("notes")
                         .short('n')
                         .long("notes")
                         .help("Release notes"),
                 )
+                .arg(Arg::new("locale")
+                        .long("locale")
+                        .required(true)
+                        .help("Locale of the release notes"))
                 .arg(
                     Arg::new("platform")
                         .short('p')
@@ -58,6 +63,8 @@ fn main() {
     match matches.subcommand() {
         Some(("patch", matches)) => {
             let platform = matches.get_one::<String>("platform").unwrap().as_str();
+            let notes = matches.get_one::<String>("notes");
+            let locale = matches.get_one::<String>("locale").unwrap();
 
             match platform {
                 "ios" => {
@@ -67,10 +74,10 @@ fn main() {
                         matches.get_one::<String>("ios-app-id").unwrap().to_string(),
                     );
 
-                    if let Some(notes) = matches.get_one::<String>("notes") {
+                    if let Some(notes) = notes {
                         let version_name = matches.get_one::<String>("version-name").unwrap();
 
-                        let result = store.set_changelog("", version_name, notes.as_str());
+                        let result = store.set_changelog(locale, version_name, notes.as_str());
 
                         match result {
                             Ok(_) => {
@@ -96,15 +103,18 @@ fn main() {
                             .to_string(),
                     );
 
-                    let result = store.set_changelog("", "", "abc");
+                    if let Some(notes) = notes {
+                        let version_name = matches.get_one::<String>("version-name").unwrap();
+                        let result = store.set_changelog(locale, version_name, notes);
 
-                    match result {
-                        Ok(_) => {
-                            println!("Successfully logged in");
-                        }
+                        match result {
+                            Ok(_) => {
+                                println!("Done!");
+                            }
 
-                        Err(e) => {
-                            println!("Error: {}", e);
+                            Err(e) => {
+                                println!("Error: {}", e);
+                            }
                         }
                     }
                 }

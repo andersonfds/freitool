@@ -1,8 +1,8 @@
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
-use std::fs;
+use std::{fs, vec};
 
-use super::datasources::{GooglePlayDataSource, ReleaseStatus};
+use super::datasources::{GooglePlayDataSource, Release, ReleaseNote, ReleaseStatus, Track};
 
 pub trait Store {
     fn set_changelog(&mut self, locale: &str, version: &str, changelog: &str)
@@ -379,6 +379,7 @@ impl Store for GooglePlay {
     ) -> Result<(), String> {
         self.login()?;
 
+        let track_name = "production";
         let token = self.token.as_ref().unwrap();
 
         let edit_id = GooglePlayDataSource::create_edit_session(token, &self.package_name)?;
@@ -387,14 +388,30 @@ impl Store for GooglePlay {
             token,
             &self.package_name,
             edit_id.as_str(),
-            "production",
+            track_name,
         )?;
 
         let release = track
             .releases
             .iter()
-            .find(|r| r.status == ReleaseStatus::Draft && (r.name == version || version.is_empty()))
+            .find(|r| r.status == ReleaseStatus::Draft && r.name == version)
             .ok_or("Release not found or in an uneditable state.")?;
+
+        let track = Track {
+            track: track_name.to_string(),
+            releases: vec![Release {
+                version_codes: None,
+                status: release.status,
+                name: release.name.clone(),
+                release_notes: Some(vec![ReleaseNote {
+                    language: locale.to_string(),
+                    text: changelog.to_string(),
+                }]),
+            }],
+        };
+
+        GooglePlayDataSource::update_track(token, &self.package_name, edit_id.as_str(), track)?;
+        GooglePlayDataSource::commit_edits(token, &self.package_name, &edit_id)?;
 
         return Ok(());
     }

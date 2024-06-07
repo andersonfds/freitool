@@ -12,11 +12,10 @@ Apple:
 
 GooglePlay:
 
-- [ ] Nothing is implemented yet
+- [x] Patch "what's new" text for an app pending release (Available in the CLI as a command)
 
 ## Features on the roadmap
 
-- [ ] Implement "what's new" for Google Play Console
 - [ ] Add support for yaml configuration file
 - [ ] Make it available on homebrew
 - [ ] Add json output for CI/CD pipelines

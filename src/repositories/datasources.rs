@@ -1,13 +1,14 @@
+use reqwest::header::ACCEPT;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ReleaseNote {
-    language: String,
-    text: String,
+    pub language: String,
+    pub text: String,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Debug, Deserialize, PartialEq, Serialize, Clone, Copy)]
 pub enum ReleaseStatus {
     #[serde(rename = "statusUnspecified")]
     Unspecified,
@@ -28,10 +29,12 @@ pub enum ReleaseStatus {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Release {
     #[serde(rename = "versionCodes")]
-    pub version_codes: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version_codes: Option<Vec<String>>,
 
     #[serde(rename = "releaseNotes")]
-    pub release_notes: Vec<ReleaseNote>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub release_notes: Option<Vec<ReleaseNote>>,
 
     pub status: ReleaseStatus,
 
@@ -52,7 +55,6 @@ where
 
     if response.status().is_success() {
         let body = response.text().map_err(|e| e.to_string())?;
-        println!("Response body: {}", body);
         let json_body: serde_json::Value =
             serde_json::from_str(&body).map_err(|e| e.to_string())?;
         let result = serde_json::from_value::<T>(json_body).map_err(|e| e.to_string())?;
@@ -114,7 +116,7 @@ impl GooglePlayDataSource {
             .map_err(|e| format!("Failed to create edit session: {}", e));
     }
 
-    pub fn patch_track(
+    pub fn update_track(
         token: &str,
         package_name: &str,
         edit_id: &str,
@@ -124,13 +126,14 @@ impl GooglePlayDataSource {
             "https://www.googleapis.com/androidpublisher/v3/applications/{}/edits/{}/tracks/{}",
             package_name, edit_id, track.track
         );
+        let req_body = json!(track).to_string();
 
         return reqwest::blocking::Client::new()
-            .patch(endpoint)
+            .put(endpoint)
             .bearer_auth(token)
-            .body(json!(track).to_string())
+            .header(ACCEPT, "application/json")
+            .body(req_body)
             .send()
-            .res::<serde_json::Value>()
             .map(|_| ())
             .map_err(|e| format!("Failed to patch track: {}", e));
     }
@@ -163,18 +166,10 @@ impl GooglePlayDataSource {
         return reqwest::blocking::Client::new()
             .post(endpoint)
             .bearer_auth(token)
+            .header(ACCEPT, "application/json")
             .body("{}")
             .send()
-            .res::<serde_json::Value>()
             .map(|_| ())
             .map_err(|e| format!("Failed to commit edits: {}", e));
-    }
-}
-
-pub struct AppStoreDataSource {}
-
-impl AppStoreDataSource {
-    pub fn new() -> Self {
-        AppStoreDataSource {}
     }
 }
