@@ -14,6 +14,12 @@ GooglePlay:
 
 - [x] Patch "what's new" text for an app pending release (Available in the CLI as a command)
 
+## Usage
+
+```bash
+freitool notes --version-name 1.0.0 --platform android --google-key-path /path/to/key.json --package-name com.example.app --message "Patched from CLI" --locale en-GB
+```
+
 ## Features on the roadmap
 
 - [ ] Add support for yaml configuration file

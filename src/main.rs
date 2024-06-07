@@ -1,70 +1,92 @@
+use std::process::exit;
+
 use clap::{command, Arg, Command};
 use repositories::store::{self, AppStore, Store};
 
 mod repositories;
 
 fn main() {
+    let notes = Command::new("notes")
+        .about("Patches the release notes for a certain platform.")
+        // Mandatory command arguments
+        .arg(
+            Arg::new("locale")
+                .help("The locale of the release notes")
+                .required(true)
+                .short('l')
+                .long("locale"),
+        )
+        .arg(
+            Arg::new("message")
+                .help("The message to be patched")
+                .required(true)
+                .short('m')
+                .long("message"),
+        )
+        .arg(
+            Arg::new("platform")
+                .help("The platform to patch the release notes")
+                .required(true)
+                .short('p')
+                .long("platform")
+                .value_parser(["android", "ios"]),
+        )
+        .arg(
+            Arg::new("version-name")
+                .help("The version name to be patched")
+                .required(true)
+                .short('n')
+                .long("version-name"),
+        )
+        // Platform specific arguments
+        // Android Google Play
+        .arg(
+            Arg::new("package-name")
+                .help("The package name of the app")
+                .long("package-name")
+                .required_if_eq("platform", "android"),
+        )
+        .arg(
+            Arg::new("google-key-path")
+                .help("The path to the service account key file")
+                .short('g')
+                .long("google-key-path")
+                .required_if_eq("platform", "android"),
+        )
+        // iOS App Store
+        .arg(
+            Arg::new("ios-app-id")
+                .help("The App Store Connect App ID")
+                .long("ios-app-id")
+                .required_if_eq("platform", "ios"),
+        )
+        .arg(
+            Arg::new("issuer-id")
+                .help("The issuer ID, UUID of the App Store Connect API key")
+                .long("issuer-id")
+                .required_if_eq("platform", "ios"),
+        )
+        .arg(
+            Arg::new("key-path")
+                .help("The path to the service account key file. Must be named AuthKey_{KEY_ID}.p8")
+                .short('k')
+                .long("key-path")
+                .required_if_eq("platform", "ios"),
+        );
+
     let matches = command!()
         .propagate_version(true)
         .subcommand_required(true)
         .arg_required_else_help(true)
-        .subcommand(
-            Command::new("patch")
-                .about("Patches the specified version with the provided information")
-                .arg(
-                    Arg::new("version-name")
-                        .required(true)
-                        .short('v')
-                        .long("version-name")
-                        .help("Version name to be patched"),
-                )
-                
-                .arg(
-                    Arg::new("notes")
-                        .short('n')
-                        .long("notes")
-                        .help("Release notes"),
-                )
-                .arg(Arg::new("locale")
-                        .long("locale")
-                        .required(true)
-                        .help("Locale of the release notes"))
-                .arg(
-                    Arg::new("platform")
-                        .short('p')
-                        .long("platform")
-                        .value_parser(["android", "ios", "all"])
-                        .default_value("all")
-                        .help("Platform to be patched"),
-                )
-                .arg(
-                    Arg::new("key-path")
-                        .short('k')
-                        .long("key-path")
-                        .value_name("file.p8")
-                        .required_if_eq_any([("platform", "ios"), ("platform", "all")])
-                        .help(
-                            "The path to the service account key file. Must be named AuthKey_{KEY_ID}.p8",
-                        ),
-                )
-                .arg(Arg::new("google-key-path").short('g').long("google-key-path").required_if_eq("platform", "android").help("The path to the service account key file"))
-                .arg(Arg::new("package-name").long("package-name").required_if_eq("platform", "android").help("The package name of the app"))
-                .arg(Arg::new("ios-app-id").short('a').long("ios-app-id").required_if_eq("platform", "ios").help("The App Store Connect App ID"))
-                .arg(
-                    Arg::new("issuer-id")
-                        .short('i')
-                        .long("issuer-id")
-                        .required_if_eq_any([("platform", "ios"), ("platform", "all")])
-                        .help("The issuer ID, UUID of the App Store Connect API key"),
-                ),
-        )
+        .subcommand(notes)
         .get_matches();
 
     match matches.subcommand() {
-        Some(("patch", matches)) => {
+        Some(("notes", matches)) => {
             let platform = matches.get_one::<String>("platform").unwrap().as_str();
-            let notes = matches.get_one::<String>("notes");
+            let version_name = matches.get_one::<String>("version-name").unwrap();
             let locale = matches.get_one::<String>("locale").unwrap();
+            let notes = matches.get_one::<String>("message").unwrap();
 
             match platform {
                 "ios" => {
@@ -74,19 +96,16 @@ fn main() {
                         matches.get_one::<String>("ios-app-id").unwrap().to_string(),
                     );
 
-                    if let Some(notes) = notes {
-                        let version_name = matches.get_one::<String>("version-name").unwrap();
+                    let result = store.set_changelog(locale, version_name, notes.as_str());
 
-                        let result = store.set_changelog(locale, version_name, notes.as_str());
+                    match result {
+                        Ok(_) => {
+                            println!("Done!");
+                        }
 
-                        match result {
-                            Ok(_) => {
-                                println!("Successfully patched the version");
-                            }
-
-                            Err(e) => {
-                                println!("Error: {}", e);
-                            }
+                        Err(e) => {
+                            println!("Error: {}", e);
+                            exit(1);
                         }
                     }
                 }
@@ -103,18 +122,16 @@ fn main() {
                             .to_string(),
                     );
 
-                    if let Some(notes) = notes {
-                        let version_name = matches.get_one::<String>("version-name").unwrap();
-                        let result = store.set_changelog(locale, version_name, notes);
+                    let result = store.set_changelog(locale, version_name, notes);
 
-                        match result {
-                            Ok(_) => {
-                                println!("Done!");
-                            }
+                    match result {
+                        Ok(_) => {
+                            println!("Done!");
+                        }
 
-                            Err(e) => {
-                                println!("Error: {}", e);
-                            }
+                        Err(e) => {
+                            println!("Error: {}", e);
+                            exit(1);
                         }
                     }
                 }
