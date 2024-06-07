@@ -24,5 +24,6 @@ freitool notes --version-name 1.0.0 --platform android --google-key-path /path/t
 - [ ] Make it available on homebrew
 - [ ] Add json output for CI/CD pipelines
 - [ ] Automated tests
+- [ ] Add `rollout` command so you can release the app from the CLI
 
 > **Note:** This is a personal project and not affiliated with Apple or Google in any way. Use at your own risk. ALSO I work on it when I have time, so it might take a while to get to the roadmap features.
