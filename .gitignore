@@ -1,3 +1,4 @@
 /target
 AuthKey_*
 bin/*
+.DS_Store
