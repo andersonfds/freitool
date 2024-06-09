@@ -17,12 +17,6 @@ pub struct AppStore {
     app_id: String,
 }
 
-pub struct GooglePlay {
-    pub key_path: String,
-    token: Option<String>,
-    package_name: String,
-}
-
 impl AppStore {
     pub fn new(key_path: String, issuer_id: String, app_id: String) -> Self {
         AppStore {
@@ -121,12 +115,20 @@ struct ServiceAccount {
     private_key: String,
 }
 
+pub struct GooglePlay {
+    pub key_path: String,
+    pub track: String,
+    token: Option<String>,
+    package_name: String,
+}
+
 impl GooglePlay {
-    pub fn new(key_path: String, package_name: String) -> Self {
+    pub fn new(key_path: String, package_name: String, track: String) -> Self {
         GooglePlay {
             key_path,
             token: None,
             package_name,
+            track,
         }
     }
 
@@ -186,7 +188,7 @@ struct Claims {
     iat: usize,
     exp: usize,
     aud: String,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     scope: Option<String>,
 }
@@ -381,7 +383,7 @@ impl Store for GooglePlay {
     ) -> Result<(), String> {
         self.login()?;
 
-        let track_name = "production";
+        let track_name = &self.track;
         let token = self.token.as_ref().unwrap();
 
         let edit_id = GooglePlayDataSource::create_edit_session(token, &self.package_name)?;

@@ -53,6 +53,13 @@ fn main() {
                 .long("google-key-path")
                 .required_if_eq("platform", "android"),
         )
+        .arg(
+            Arg::new("track")
+                .help("The track to update")
+                .long("track")
+                .required_if_eq("platform", "android")
+                .value_names(&["production", "beta", "alpha", "internal"]),
+        )
         // iOS App Store
         .arg(
             Arg::new("ios-app-id")
@@ -120,6 +127,7 @@ fn main() {
                             .get_one::<String>("package-name")
                             .unwrap()
                             .to_string(),
+                        matches.get_one::<String>("track").unwrap().to_string(),
                     );
 
                     let result = store.set_changelog(locale, version_name, notes);
