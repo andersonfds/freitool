@@ -58,7 +58,7 @@ fn main() {
                 .help("The track to update")
                 .long("track")
                 .required_if_eq("platform", "android")
-                .value_names(&["production", "beta", "alpha", "internal"]),
+                .value_parser(["internal", "alpha", "beta", "production"]),
         )
         // iOS App Store
         .arg(
