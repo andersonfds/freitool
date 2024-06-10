@@ -8,7 +8,7 @@ pub trait Store {
     fn set_changelog(&mut self, locale: &str, version: &str, changelog: &str)
         -> Result<(), String>;
 
-    fn create_version(&mut self, version: &str) -> Result<(), String>
+    fn create_version(&mut self, version: &str) -> Result<(), String>;
 }
 
 pub struct AppStore {
