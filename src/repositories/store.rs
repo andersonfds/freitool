@@ -7,6 +7,8 @@ use super::datasources::{GooglePlayDataSource, Release, ReleaseNote, ReleaseStat
 pub trait Store {
     fn set_changelog(&mut self, locale: &str, version: &str, changelog: &str)
         -> Result<(), String>;
+
+    fn create_version(&mut self, version: &str) -> Result<(), String>
 }
 
 pub struct AppStore {
@@ -329,6 +331,7 @@ impl AppStoreDataSource {
 
         Ok(response)
     }
+
 }
 
 impl Store for AppStore {
@@ -372,6 +375,10 @@ impl Store for AppStore {
             return Err(response.unwrap_err().to_string());
         }
     }
+
+    fn create_version(&mut self, _version: &str) -> Result<(), String> {
+        unimplemented!()
+    }
 }
 
 impl Store for GooglePlay {
@@ -411,6 +418,27 @@ impl Store for GooglePlay {
                     language: locale.to_string(),
                     text: changelog.to_string(),
                 }]),
+            }],
+        };
+
+        GooglePlayDataSource::update_track(token, &self.package_name, edit_id.as_str(), track)?;
+        GooglePlayDataSource::commit_edits(token, &self.package_name, &edit_id)?;
+
+        return Ok(());
+    }
+
+    fn create_version(&mut self, version: &str) -> Result<(), String> {
+        self.login()?;
+
+        let token = self.token.as_ref().unwrap();
+        let edit_id = GooglePlayDataSource::create_edit_session(token, &self.package_name)?;
+        let track = Track {
+            track: self.track.clone(),
+            releases: vec![Release {
+                version_codes: None,
+                status: ReleaseStatus::Draft,
+                name: version.to_string(),
+                release_notes: None,
             }],
         };
 
