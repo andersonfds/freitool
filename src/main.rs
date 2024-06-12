@@ -5,6 +5,7 @@ use clap::{command, Arg, Command};
 use repositories::store::{self, AppStore, Store};
 
 mod repositories;
+mod data;
 
 trait OutputMapper {
     fn print_output(&self, output_json: bool);
