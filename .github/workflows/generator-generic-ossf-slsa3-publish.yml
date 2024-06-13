@@ -1,0 +1,35 @@
+name: Rust Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build_macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+
+      - name: Install target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build for macOS
+        run: make build_macos TARGET=${{ matrix.target }}
+
+      - name: Upload build artifacts
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v2
+        with:
+          name: macOS-${{ matrix.target }}
+          path: ./bin/${{ secrets.PROJECT_NAME }}_macOS_${{ matrix.target }}.tar.gz
