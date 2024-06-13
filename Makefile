@@ -1,22 +1,15 @@
 PROJECT_NAME := $(shell basename $(CURDIR))
+TARGET ?= default
 
-build_arm_macos:
-	@echo "Building for ARM"
-	cargo build --release --target aarch64-apple-darwin
-	mkdir -p ./bin/macOS/arm64
-	cp ./target/aarch64-apple-darwin/release/$(PROJECT_NAME) ./bin/macOS/arm64/$(PROJECT_NAME)
-	tar -czvf ./bin/$(PROJECT_NAME)_macOS_arm.tar.gz -C ./bin/macOS/arm64/ $(PROJECT_NAME)
+build_macos:
+	@echo "Building for macOS"
+	cargo build --release --target $(TARGET)
+	mkdir -p ./bin/macOS/$(TARGET)
+	cp ./target/$(TARGET)/release/$(PROJECT_NAME) ./bin/macOS/$(TARGET)/$(PROJECT_NAME)
+	tar -czvf ./bin/$(PROJECT_NAME)_macOS_$(TARGET).tar.gz -C ./bin/macOS/$(TARGET)/ $(PROJECT_NAME)
 	rm -r ./bin/macOS
-
-build_intel_macos:
-	@echo "Building for x86"
-	cargo build --release --target x86_64-apple-darwin
-	mkdir -p ./bin/macOS/x86_64
-	cp ./target/x86_64-apple-darwin/release/$(PROJECT_NAME) ./bin/macOS/x86_64/$(PROJECT_NAME)
-	tar -czvf ./bin/$(PROJECT_NAME)_macOS_x86.tar.gz -C ./bin/macOS/x86_64/ $(PROJECT_NAME)
-	rm -r ./bin/macOS
-
-build_macos: build_arm_macos build_intel_macos
+	@echo "Done!, checksum:"
+	@shasum -a 256 ./bin/$(PROJECT_NAME)_macOS_$(TARGET).tar.gz
 
 build_linux:
 	@echo "Building for Linux"
