@@ -2,11 +2,12 @@
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/andersonfds)
 
-
 This is a work in progress, goal is to have a CLI tool that automates AppStore Connect and Google Play Console without manually having to go to the website. Eventually add JSON output to be used in CI/CD pipelines.
 
 Available commands, so far:
+
 - **notes**: Patches release notes for Google Play or AppStore release
+- **version** Creates a new version for Google Play or AppStore
 
 ## Installation
 
@@ -21,6 +22,8 @@ brew install freitool
 # Patches release notes for google play in English
 freitool notes --version-name 1.0.0 --platform android --google-key-path /path/to/key.json --package-name com.example.app --message "Patched from CLI" --locale en-GB
 ```
+
+For more information on how to use the tool, run `freitool --help`
 
 ## Features on the roadmap
 
