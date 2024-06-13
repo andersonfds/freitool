@@ -1,4 +1,7 @@
+
 # Freitool lets you interact with GooglePlay and AppStore Connect from the command line
+
+[![Rust Build](https://github.com/andersonfds/freitool/actions/workflows/rust_build.yml/badge.svg)](https://github.com/andersonfds/freitool/actions/workflows/rust_build.yml)
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/andersonfds)
 
