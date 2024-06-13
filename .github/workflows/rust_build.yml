@@ -31,5 +31,5 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v2
         with:
-          name: macOS_${{ matrix.target }}.tar.gz
+          name: macOS_${{ matrix.target }}
           path: ./bin/freitool_macOS_${{ matrix.target }}.tar.gz
