@@ -239,8 +239,9 @@ impl Store for AppStore {
         }
     }
 
-    fn create_version(&mut self, _version: &str) -> Result<(), String> {
-        unimplemented!()
+    fn create_version(&mut self, version: &str) -> Result<(), String> {
+        let token = self.token().ok_or("Not logged in".to_string())?;
+        return AppStoreDataSource::create_version(token.as_str(), &self.app_id, version);
     }
 }
 

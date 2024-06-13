@@ -12,7 +12,7 @@ where
         return Ok(result);
     } else {
         return Err(format!(
-            "Failed to deserialize response: {}",
+            "ERROR: {}",
             response.text().map_err(|e| e.to_string())?
         ));
     }

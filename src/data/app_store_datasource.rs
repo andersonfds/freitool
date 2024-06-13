@@ -1,6 +1,7 @@
-use std::{any::Any, collections::HashMap, hash::Hash};
-
+use super::datasource::ResponseMapper;
+use reqwest::header::CONTENT_TYPE;
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Map};
 
 pub struct AppStoreDataSource {
     token: String,
@@ -122,42 +123,46 @@ impl AppStoreDataSource {
         app_id: &str,
         version: &str,
     ) -> Result<AppStoreVersionResponse, String> {
-        let client = reqwest::blocking::Client::new()
+        return reqwest::blocking::Client::new()
             .get(ep(format!(
                 "apps/{}/appStoreVersions?filter[versionString]={}",
                 app_id, version
             )
             .as_str()))
-            .bearer_auth(self.token.clone());
-
-        let response = client.send().map_err(|e| e.to_string())?;
-        let response = response.text().map_err(|e| e.to_string())?;
-        let response: AppStoreVersionResponse =
-            serde_json::from_str(&response).map_err(|e| e.to_string())?;
-
-        Ok(response)
+            .bearer_auth(self.token.clone())
+            .send()
+            .res::<AppStoreVersionResponse>();
     }
 
-    pub fn create_version(&self, app_id: &str, version: &str) -> Result<(), String> {
-        let mut attributes = HashMap::<String, Box<dyn Any>>::new();
-        attributes.insert("platform".to_string(), Box::new("IOS"));
-        attributes.insert("versionString".to_string(), Box::new(version.to_string()));
+    pub fn create_version(token: &str, app_id: &str, version: &str) -> Result<(), String> {
+        let request_body = json!({
+            "data": {
+                "attributes": {
+                    "platform": "IOS",
+                    "versionString": version,
+                },
+                "relationships": {
+                    "app": {
+                        "data": {
+                            "id": app_id,
+                            "type": "apps"
+                        }
+                    }
+                },
+                "type": "appStoreVersions",
+            },
+        });
 
-        let mut app = HashMap::<String, Box<dyn Any>>::new();
-        app.insert("type".to_string(), Box::new("apps"));
-        app.insert("id".to_string(), Box::new(app_id.to_string()));
+        println!("{}", serde_json::to_string(&request_body).unwrap());
 
-        let mut relationships = HashMap::<String, Box<dyn Any>>::new();
-        relationships.insert("app".to_string(), Box::new(app));
-
-        let mut data = HashMap::<String, Box<dyn Any>>::new();
-        data.insert("attributes".to_string(), Box::new(attributes));
-        data.insert("relationships".to_string(), Box::new(relationships));
-        data.insert("type".to_string(), Box::new("appStoreVersions"));
-
-        let request_body: AppStoreSingleData<HashMap<String, Box<dyn Any>>> =
-            AppStoreSingleData { data };
-
-        return Ok(());
+        return reqwest::blocking::Client::new()
+            .post(ep("appStoreVersions"))
+            .bearer_auth(token)
+            .header(CONTENT_TYPE, "application/json")
+            .body(serde_json::to_string(&request_body).map_err(|e| e.to_string())?)
+            .send()
+            .res::<Map<_, _>>()
+            .map(|_| ())
+            .map_err(|e| e.to_string());
     }
 }
