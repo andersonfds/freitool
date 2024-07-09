@@ -296,6 +296,18 @@ impl Store for GooglePlay {
 
         let token = self.token.as_ref().unwrap();
         let edit_id = GooglePlayDataSource::create_edit_session(token, &self.package_name)?;
+
+        let current_track_data =
+            GooglePlayDataSource::get_track(token, &self.package_name, &edit_id, &self.track)?;
+
+        if current_track_data
+            .releases
+            .iter()
+            .any(|r| r.name == version)
+        {
+            return Err("Version already exists".to_string());
+        }
+
         let track = Track {
             track: self.track.clone(),
             releases: vec![Release {

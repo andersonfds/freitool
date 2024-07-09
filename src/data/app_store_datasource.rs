@@ -153,8 +153,6 @@ impl AppStoreDataSource {
             },
         });
 
-        println!("{}", serde_json::to_string(&request_body).unwrap());
-
         return reqwest::blocking::Client::new()
             .post(ep("appStoreVersions"))
             .bearer_auth(token)
