@@ -123,30 +123,29 @@ fn main() {
     let (platform, args) = matches.subcommand().unwrap();
     let (command, args) = args.subcommand().unwrap();
 
-    let ios_store: Option<AppStore> = if platform == "ios" {
-        Some(AppStore::new(
-            args.get_one::<String>("key-path").unwrap().to_string(),
-            args.get_one::<String>("issuer-id").unwrap().to_string(),
-            args.get_one::<String>("ios-app-id").unwrap().to_string(),
-        ))
-    } else {
-        None
-    };
+    let mut store: Box<dyn Store> = match platform {
+        "ios" => Box::new(
+            AppStore::new(
+                args.get_one::<String>("key-path").map(|s| s.to_string()),
+                args.get_one::<String>("issuer-id").map(|s| s.to_string()),
+                args.get_one::<String>("ios-app-id").map(|s| s.to_string()),
+            )
+            .expect("Could not create the store"),
+        ),
 
-    let android_store: Option<store::GooglePlay> = if platform == "android" {
-        Some(store::GooglePlay::new(
-            args.get_one::<String>("key-path").unwrap().to_string(),
-            args.get_one::<String>("package-name").unwrap().to_string(),
-            args.get_one::<String>("track").unwrap().to_string(),
-        ))
-    } else {
-        None
-    };
+        "android" => Box::new(
+            store::GooglePlay::new(
+                args.get_one::<String>("key-path").map(|s| s.to_string()),
+                args.get_one::<String>("package-name")
+                    .map(|s| s.to_string()),
+                args.get_one::<String>("track").map(|s| s.to_string()),
+            )
+            .expect("Could not create the store"),
+        ),
 
-    let mut store: Box<dyn Store> = if platform == "ios" {
-        Box::new(ios_store.unwrap())
-    } else {
-        Box::new(android_store.unwrap())
+        _ => {
+            unimplemented!("Platform is invalid");
+        }
     };
 
     match command {
@@ -158,9 +157,14 @@ fn main() {
                     let version = args.get_one::<String>("name").unwrap();
                     let _ = store.create_version(version).unwrap();
                 }
+
                 "notes" => {
-                    println!("Updating the release notes");
+                    let notes = args.get_one::<String>("message").unwrap();
+                    let language = args.get_one::<String>("language").unwrap();
+                    let version = args.get_one::<String>("name").unwrap();
+                    let _ = store.set_changelog(language, version, notes).unwrap();
                 }
+
                 _ => {
                     unimplemented!("Command not implemented");
                 }
