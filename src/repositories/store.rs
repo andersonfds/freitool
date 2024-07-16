@@ -22,14 +22,22 @@ pub struct AppStore {
 }
 
 impl AppStore {
-    pub fn new(key_path: String, issuer_id: String, app_id: String) -> Self {
-        AppStore {
+    pub fn new(
+        key_path: Option<String>,
+        issuer_id: Option<String>,
+        app_id: Option<String>,
+    ) -> Result<Self, String> {
+        let key_path = key_path.ok_or("Key path is required")?;
+        let issuer_id = issuer_id.ok_or("Issuer ID is required")?;
+        let app_id = app_id.ok_or("App ID is required")?;
+
+        return Ok(Self {
             key_path,
             issuer_id,
             app_id,
             token: None,
             token_expiration: None,
-        }
+        });
     }
 
     fn token(&mut self) -> Option<String> {
@@ -127,13 +135,17 @@ pub struct GooglePlay {
 }
 
 impl GooglePlay {
-    pub fn new(key_path: String, package_name: String, track: String) -> Self {
-        GooglePlay {
+    pub fn new(key_path: Option<String>, package_name: Option<String>, track: Option<String>) -> Result<Self, String> {
+        let key_path = key_path.ok_or("Key path is required")?;
+        let package_name = package_name.ok_or("Package name is required")?;
+        let track = track.ok_or("Track is required")?;
+
+        return Ok(Self {
             key_path,
             token: None,
             package_name,
             track,
-        }
+        });
     }
 
     fn get_private_token(&self) -> Result<String, String> {

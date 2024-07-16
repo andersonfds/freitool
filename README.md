@@ -23,7 +23,10 @@ brew install freitool
 
 ```bash
 # Patches release notes for google play in English
-freitool notes --version-name 1.0.0 --platform android --google-key-path /path/to/key.json --package-name com.example.app --message "Patched from CLI" --locale en-GB
+freitool android version notes --message "This is a test" --language en-GB --name "1.2.3" --package com.example.app --key-path /path/to/key.json --track production
+
+# Creates a new version for AppStore
+freitool ios version create 1.69.0 --app-id xxxx --key-path /path/to/key.p8 --issuer-id xxxx
 ```
 
 For more information on how to use the tool, run `freitool --help`
